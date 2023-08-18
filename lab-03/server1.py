@@ -54,9 +54,9 @@ def handleClient(conn, addr):
             connected = False
         print("\nSend message to (ip:port) : ", end="")
         sys.stdout.flush()
-
+    print(f"\r> Connection {addr[0]}:{addr[1]} is disconnected.")
     conn.close()
-
+    
 def sendMsg():
     while True:
         client_addr = input("\nSend message to (ip:port) : ")

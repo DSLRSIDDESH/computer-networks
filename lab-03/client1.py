@@ -8,7 +8,7 @@ PORT = 8308
 ADDR = (IP, PORT)
 SIZE = 1024
 FORMAT = "UTF-8"
-DISCONNECT_MSG = "!DISCONNECT"
+DISCONNECT_MSG = "disconnect"
 
 def handleServer(client):
     connected = True

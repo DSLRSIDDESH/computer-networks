@@ -1,8 +1,7 @@
 import socket
 import threading
 
-# IP = socket.gethostbyname(socket.gethostname())
-IP = ''
+IP = socket.gethostbyname(socket.gethostname())
 PORT = 8007
 ADDR = (IP, PORT)
 SIZE = 1024
