@@ -2,7 +2,7 @@ import socket
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8025
+PORT = 8026
 ADDR = (IP, PORT)
 SIZE = 1024
 FORMAT = "UTF-8"

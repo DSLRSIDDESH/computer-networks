@@ -3,7 +3,7 @@ import threading
 import sys
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8025
+PORT = 8026
 ADDR = (IP, PORT)
 SIZE = 1024
 FORMAT = "UTF-8"
@@ -45,7 +45,7 @@ def main():
 
     connected = True
     while connected:
-        neigh_client = input("Enter ip:addr : ")
+        neigh_client = input("Enter ip:port : ")
         if neigh_client.lower() != DISCONNECT_MSG:
             msg = input("Enter a message: ")
             msg = neigh_client + "&" + msg + '&msg'
