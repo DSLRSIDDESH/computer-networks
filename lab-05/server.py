@@ -2,7 +2,7 @@ import socket
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8008
+PORT = 8010
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
@@ -61,6 +61,7 @@ def send_file():
             continue
 
         file_path = 'server/'
+        global file_status
         if file_status == 0:
             file_path += input("Enter the file name : ")
             conn.send(file_path.encode(FORMAT))
