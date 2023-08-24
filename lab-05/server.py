@@ -2,7 +2,7 @@ import socket
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8010
+PORT = 8013
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"

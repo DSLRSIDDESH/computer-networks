@@ -2,7 +2,7 @@ import socket
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8010
+PORT = 8013
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
@@ -17,7 +17,9 @@ def handle_server(client):
         if recv_msg == DISCONNECT_MSG:
             break
 
+        global file_status
         if file_status == 0:
+            recv_msg = recv_msg.split('/')[1]
             file_path += recv_msg
             with open(file_path, 'w'):
                 pass
@@ -28,7 +30,7 @@ def handle_server(client):
         
         elif file_status == 1:
             file_data = recv_msg
-            with open(file_path, 'r') as file:
+            with open(file_path, 'w') as file:
                 file.write(file_data + "\n")
 
             send_msg = send_msg + "file data."
