@@ -1,41 +1,55 @@
 import socket
 import threading
+import readline
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8013
+PORT = 8205
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
 file_status = 0
 
+current_input = ""
+def print_msg(msg):
+    input_buffer = readline.get_line_buffer()
+    print(f"\r{msg}\n{current_input}{input_buffer}",end="",flush=True)
+
+def input_msg(input_str):
+    global current_input
+    current_input = input_str
+    output = input(f"\r{input_str}")
+    return output
+
 def handle_server(client):
-    file_path = 'client/'
-    send_msg = "[Client] Successfully received "
+    file_path = ''
+    send_ms  = "\r[Client] Successfully received "
+    msg_type, msg = '', ''
 
     while True:
         recv_msg = client.recv(SIZE).decode(FORMAT)
-        if recv_msg == DISCONNECT_MSG:
+        msg_type, msg = recv_msg.split(';')
+
+        if msg == DISCONNECT_MSG:
             break
-
-        global file_status
-        if file_status == 0:
-            recv_msg = recv_msg.split('/')[1]
-            file_path += recv_msg
-            with open(file_path, 'w'):
-                pass
-
-            send_msg = send_msg + "file path."
-            client.send(send_msg.encode(FORMAT))
-            file_status = 1
         
-        elif file_status == 1:
-            file_data = recv_msg
-            with open(file_path, 'w') as file:
-                file.write(file_data + "\n")
-
-            send_msg = send_msg + "file data."
+        if msg_type == 'f':
+            file_path = recv_msg.split(';')[1]
+            with open(f'client/{file_path}', 'w'):
+                pass
+            send_msg = 'w;' + send_ms + "file name."
             client.send(send_msg.encode(FORMAT))
-            file_status = 0
+
+            file_data = client.recv(SIZE).decode(FORMAT)
+            file_data = file_data.split(';')[1]
+            with open(f'client/{file_path}', 'w') as file:
+                file.write(file_data)
+            
+            send_msg = 'w;' + send_ms + "file data."
+            client.send(send_msg.encode(FORMAT))
+
+        elif msg_type == 'w':
+            msg = recv_msg.split(';')[1]
+            print_msg(msg)
 
     client.close()
 
@@ -44,34 +58,25 @@ def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     client.connect(ADDR)
-    print(f"> Client connected to {IP}:{PORT}")
+    print_msg(f"> Client connected to {IP}:{PORT}")
 
     server_thread = threading.Thread(target=handle_server, args=(client,))
     server_thread.start()
 
-    file_path = 'client/'
-    num_send = 2
-    for i in range(num_send):
-        if i == 0:
-            file_path += input("Enter the file name : ")
-            client.send(file_path.encode(FORMAT))
+    connected = True
+    while connected:
+        file_path = input_msg("\nEnter the file name : ")
 
-            recv_msg = client.recv(SIZE).decode(FORMAT)
-            if recv_msg == DISCONNECT_MSG:
-                break
-            print(recv_msg)
+        client.send(f'f;{file_path}'.encode(FORMAT))
+        if file_path == DISCONNECT_MSG:
+            break
 
-        elif i == 1:
-            with open(file_path, 'r') as file:
-                file_data = file.read()
-            client.send(file_data.encode(FORMAT))
+        with open(f"client/{file_path}", 'r') as file:
+            file_data = file.read()
 
-            recv_msg = client.recv(SIZE).decode(FORMAT)
-            if recv_msg == DISCONNECT_MSG:
-                break
-            print(recv_msg)
+        client.send(f'{file_data}'.encode(FORMAT))
 
-    print(f"> [Disconnect] disconnected from server.")
+    print_msg(f"> [Disconnect] disconnected from server.")
     client.close()
 
 if __name__ == "__main__":

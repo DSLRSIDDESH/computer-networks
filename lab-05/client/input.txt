@@ -1,1 +1,0 @@
-[Server] Successfully received file path.
