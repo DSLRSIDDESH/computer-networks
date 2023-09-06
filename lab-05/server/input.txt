@@ -1,1 +1,1 @@
-Hi, this is a file sent from server.
+Hi, this is from server.

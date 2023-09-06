@@ -1,9 +1,8 @@
 import socket                                               # importing libraries
 import threading
-import readline
 
 IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8304
+PORT = 8305
 ADDR = (IP, PORT)                                           # address
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"

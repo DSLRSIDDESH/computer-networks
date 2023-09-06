@@ -1,9 +1,8 @@
 import socket                                               # importing libraries
 import threading
-import readline
 
 IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8304                                                 # port number
+PORT = 8305                                                 # port number
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
@@ -92,7 +91,7 @@ def main():
 
     server.listen()                                             # listen to socket
     print_msg(f"> Server is listening on {IP}:{PORT}")
-    print_msg(f"> [Active Connections] {threading.active_count() - 1}")
+    # print_msg(f"> [Active Connections] {threading.active_count() - 1}")
 
     send_thread = threading.Thread(target=send_file, args=())   # create thread to send file
     send_thread.start()                                         

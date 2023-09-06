@@ -2,3 +2,4 @@
 .DS_Store
 .vs_code
 *.md
+*/*.pdf
