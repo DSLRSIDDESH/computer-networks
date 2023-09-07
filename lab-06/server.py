@@ -2,7 +2,7 @@ import socket                                               # importing librarie
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8006                                                 # port number
+PORT = 8007                                                 # port number
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"

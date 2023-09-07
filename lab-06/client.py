@@ -3,7 +3,7 @@ import threading
 from time import sleep
 
 IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8006
+PORT = 8007
 ADDR = (IP, PORT)                                           # address
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
