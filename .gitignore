@@ -1,5 +1,7 @@
-*.pdf
 .DS_Store
 .vs_code
 *.md
+*.pdf
 */*.pdf
+*.png
+*/*.png

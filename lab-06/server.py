@@ -1,8 +1,10 @@
+# server.py
+# CS21B2019 DEVARAKONDA SLR SIDDESH
 import socket                                               # importing libraries
 import threading
 
 IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8007                                                 # port number
+PORT = 8002                                                 # port number
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
@@ -25,20 +27,20 @@ def find_conn(addr):                                        # find connection fr
             return conn
     return None
 
-def handle_client(conn, addr):                              # handle client to eceive file
+def handle_client(conn, addr):                              # handle client to receive and send file
     print_msg(f"> [New Connection] {addr[0]}:{addr[1]} is connected.")
     send_ms = "\r[Server] Successfully received "
 
     while True:
-        recv_msg = conn.recv(SIZE).decode(FORMAT)           # receive message from server
+        recv_msg = conn.recv(SIZE).decode(FORMAT)           # receive message from a client
 
-        if recv_msg == DISCONNECT_MSG:                           # disconnect client if client send disconnect message
+        if recv_msg == DISCONNECT_MSG:                      # disconnect client if client send disconnect message
             print_msg(f"> [Disconnected] {addr[0]}:{addr[1]} has disconnected.")
             clients.remove((conn, addr))
             break
             
-        msg_type = recv_msg.split(';')[0]
-        neigh_client = recv_msg.split(';')[1]
+        msg_type = recv_msg.split(';')[0]                   # msg type (file or acknowledgement)
+        neigh_client = recv_msg.split(';')[1]               # the client we intend to send msg to (ip:port)
 
         neigh_ip = neigh_client.split(':')[0]
         neigh_port = int(neigh_client.split(':')[1])
@@ -48,25 +50,25 @@ def handle_client(conn, addr):                              # handle client to e
         curr_ip = addr[0]
         curr_port = str(addr[1])
         
-        if msg_type == 'f':                                 # to receive file from client
-            file_name = recv_msg.split(';')[2]
+        if msg_type == 'f':                                 # if msg type is file
+            file_name = recv_msg.split(';')[2]              # file name
 
             send_msg = f"f;{curr_ip}:{curr_port};{file_name}"
 
-            neigh_conn.send(send_msg.encode(FORMAT))        # send file to intended client
+            neigh_conn.send(send_msg.encode(FORMAT))        # send file name to intended client
 
-            file_data = conn.recv(SIZE)
-            while file_data:
-                neigh_conn.send(file_data)   # write file data to file
+            file_data = conn.recv(SIZE)                     # receive file data from client
+            while file_data:                                # to receive and send file data as packets (1024 bytes at a time until EOF)
+                neigh_conn.send(file_data)                  # send file data to intended client
                 if file_data == b'EOF':
                     break
                 file_data = conn.recv(SIZE)
         
-        elif msg_type == 'w':                               # print message received from client if msg is acknoledgement
+        elif msg_type == 'w':                               # if msg type is acknowledgement
             msg = recv_msg.split(';')[2]
 
             send_msg = f"w;{curr_ip}:{curr_port};{msg}"
-            neigh_conn.send(send_msg.encode(FORMAT))
+            neigh_conn.send(send_msg.encode(FORMAT))        # send acknowledgement to client
     
     conn.close()
 
@@ -85,10 +87,10 @@ def main():
         clients.append((conn, addr))                            # add client to clients list
 
         client_thread = threading.Thread(target = handle_client, args=(conn, addr))
-        client_thread.start()                                   # create thread to handle client
+        client_thread.start()                                   # create thread to handle clients
 
         print_msg(f"> [Active Connections] {threading.active_count() - 1}")
-        # print thread_count-2 because send_thread and client_thread is not client thread
+        # print thread_count-1 because send_thread and client_thread is not client thread
     
 if __name__ == "__main__":
     main()
