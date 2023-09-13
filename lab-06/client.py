@@ -4,8 +4,9 @@ import socket                                               # importing librarie
 import threading
 from time import sleep
 
-IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8002
+# IP = socket.gethostbyname(socket.gethostname())             # getting ip address
+IP = ''
+PORT = 8011
 ADDR = (IP, PORT)                                           # address
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"

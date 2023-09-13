@@ -3,8 +3,9 @@
 import socket                                               # importing libraries
 import threading
 
-IP = socket.gethostbyname(socket.gethostname())             # getting ip address
-PORT = 8002                                                 # port number
+# IP = socket.gethostbyname(socket.gethostname())             # getting ip address
+IP =''
+PORT = 8011                                                 # port number
 ADDR = (IP, PORT)
 SIZE, FORMAT = 1024, "UTF-8"
 DISCONNECT_MSG = "disconnect"
