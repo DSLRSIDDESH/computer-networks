@@ -1,100 +1,106 @@
 import pygame
 import socket
 import pickle
-import time
+import random
 
 # Initialize Pygame
 pygame.init()
+
 # Connect to the server
-HOST = '127.0.0.1'
-PORT = 12012
+IP = socket.gethostbyname(socket.gethostname())              # ip address
+PORT = 8201
+ADDR = (IP, PORT)                                           # address
+SIZE = 4096
+
 # Constants
 WIDTH, HEIGHT = 800, 600
 PLAYER_SIZE = 30
 COIN_SIZE = 15
-BLACK = (0, 0, 0)
-YELLOW = (255, 255, 0)
+BACKGROUND = (0, 0, 0)
+COIN_COLOR = (137, 207, 240)
 
 # Create the game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Coin Collector Game")
 
 # Function to send player input to the server
-def send_player_input():
+def send_player_input(client):
     keys = pygame.key.get_pressed()
-    input_data = {
+    input_data = ({
         'left': keys[pygame.K_LEFT],
         'right': keys[pygame.K_RIGHT],
         'up': keys[pygame.K_UP],
         'down': keys[pygame.K_DOWN],
-    }
-    client_socket.send(pickle.dumps(input_data))
+    })
+    client.send(pickle.dumps(input_data))
 
 # Function to receive game state from the server
-def receive_game_state():
+def receive_game_state(client):
     try:
-        data = client_socket.recv(4096)
+        data = client.recv(SIZE)
         game_state = pickle.loads(data)
         return game_state
     except Exception as e:
         print(f"Error receiving game state: {e}")
         return None
 
-def render_players_scores(players):
-    # pass
-    font = pygame.font.Font(None, 16)
+def render_players_scores(game_state):
+    font = pygame.font.Font('freesansbold.ttf', 24)
     y_offset = 10
-    for player_id, (player_x, player_y) in players.items():
+    for player_id, (player_x, player_y) in game_state['players'].items():
         score = game_state['player_scores'].get(player_id, 0)
-        text = font.render(f"Player {player_id}: {score}", True, YELLOW)
+        text = font.render(f"Player-{player_id + 1}: {score}", True, game_state['color'][player_id])
         screen.blit(text, (10, y_offset))
-        y_offset += 40
+        y_offset += 30
 
-# Connect to the server
-def connect_to_server():
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while True:
-        try:
-            client_socket.connect((HOST, PORT))
-            return client_socket
-        except Exception as e:
-            print("Server is not available. Retrying in 5 seconds...")
-            time.sleep(5)
 
-client_socket = connect_to_server()
+def main():
+    # Connect to the server
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    client.connect(ADDR)
+    print(f"> Client connected to server at {IP}:{PORT}")
 
 # Game loop
-running = True
+    connected = True
+    while connected:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                connected = False
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+        send_player_input(client)  # Send player input to the server
+        game_state = receive_game_state(client)  # Receive game state from the server
+        player_id = 0
+        # Check if the game_state type is str
+        if type(game_state) == str:
+            font = pygame.font.Font('freesansbold.ttf', 32)
+            text = font.render(game_state[0], True, (255, 255, 255))
+            textRect = text.get_rect()
+            textRect.center = (WIDTH // 2, HEIGHT // 2)
+            screen.blit(text, textRect)
+            pygame.display.flip()
+            pygame.time.delay(5000)
+            connected = False
+        else:
+            if game_state != None:
+                coins = game_state['coins']
+                
+                screen.fill(BACKGROUND) # Clear the screen
 
-    send_player_input()  # Send player input to the server
+                for player_id, (player_x, player_y) in game_state['players'].items():     # Draw players
+                    player_color = game_state['color'][player_id]
+                    pygame.draw.rect(screen, player_color, (player_x, player_y, PLAYER_SIZE, PLAYER_SIZE))
+                for coin_x, coin_y in coins:                                # Draw coins
+                    pygame.draw.ellipse(screen, COIN_COLOR, (coin_x, coin_y, COIN_SIZE, COIN_SIZE))
 
-    game_state = receive_game_state()
+                # Display player scores
+                render_players_scores(game_state)
 
-    if game_state is not None:
-        players = game_state['players']
-        coins = game_state['coins']
+                # Update the display
+                pygame.display.flip()
 
-        # Clear the screen
-        screen.fill(BLACK)
+    # Quit Pygame
+    pygame.quit()
 
-        # Draw players
-        for player_id, (player_x, player_y) in players.items():
-            pygame.draw.rect(screen, YELLOW, (player_x, player_y, PLAYER_SIZE, PLAYER_SIZE))
-
-        # Draw coins
-        for coin_x, coin_y in coins:
-            pygame.draw.ellipse(screen, YELLOW, (coin_x, coin_y, COIN_SIZE, COIN_SIZE))
-
-        # Display player scores
-        render_players_scores(players)
-
-        # Update the display
-        pygame.display.flip()
-
-# Quit Pygame
-pygame.quit()
+if __name__ == "__main__":
+    main()
