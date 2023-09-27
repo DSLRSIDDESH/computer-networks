@@ -5,8 +5,9 @@ import pickle
 import queue
 
 # Server configuration
-IP = socket.gethostbyname(socket.gethostname())
-PORT = 8201
+# IP = socket.gethostbyname(socket.gethostname())
+IP = ''
+PORT = 8513
 ADDR = (IP, PORT)
 SIZE = 4096
 clients = {}
@@ -22,14 +23,14 @@ WINNING_SCORE = 5
 
 # Create the game state
 game_state = {
-    'players': {},          # Store player positions as {'player_id': (x, y)}
-    'player_scores': {},    # Store player scores as {'player_id': score}
+    'players': {},          # Store player positions as {player_id: (x, y)}
+    'player_scores': {},    # Store player scores as {player_id: score}
     'coins': [(random.randint(0, WIDTH - COIN_SIZE), random.randint(0, HEIGHT - COIN_SIZE)) for _ in range(COIN_COUNT)],
     'color': {}             # Store player color as {'player_id': (R, G, B)}
 }
 
 # Function to update player position based on input
-def update_player_position(player_id, input_data, color = (255, 255, 0)):
+def update_player_position(player_id, input_data):
     player_x, player_y = game_state['players'][player_id]
     if input_data['left']:
         player_x -= PLAYER_SPEED
@@ -83,7 +84,7 @@ def handle_client(conn, player_id):
                     if score >= WINNING_SCORE:
                         break
                 for connection in clients.values():
-                    connection.send(pickle.dumps(f'Game Over - Player {player_id + 1} wins!'))
+                    connection.send(pickle.dumps(player_id))
 
     # Remove the player from the game state and close the socket
     del game_state['players'][player_id]
@@ -122,10 +123,8 @@ def main():
         game_state['players'][player_id] = (player_x, player_y)
 
         
-        R = random.randint(10, 255)
-        G = random.randint(10, 255)
-        B = random.randint(10, 255)
-        game_state['color'][player_id] = (R, G, B)
+        display_color = (random.randint(10, 255) for _ in range(3))
+        game_state['color'][player_id] = tuple(display_color)
         game_state['player_scores'][player_id] = game_state['player_scores'].get(player_id, 0)
 
         client_thread = threading.Thread(target=handle_client, args=(conn, player_id))

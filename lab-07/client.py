@@ -7,8 +7,9 @@ import random
 pygame.init()
 
 # Connect to the server
-IP = socket.gethostbyname(socket.gethostname())              # ip address
-PORT = 8201
+# IP = socket.gethostbyname(socket.gethostname())              # ip address
+IP = ''
+PORT = 8513
 ADDR = (IP, PORT)                                           # address
 SIZE = 4096
 
@@ -44,6 +45,7 @@ def receive_game_state(client):
         print(f"Error receiving game state: {e}")
         return None
 
+# Function to render player scores
 def render_players_scores(game_state):
     font = pygame.font.Font('freesansbold.ttf', 24)
     y_offset = 10
@@ -72,14 +74,14 @@ def main():
         game_state = receive_game_state(client)  # Receive game state from the server
         player_id = 0
         # Check if the game_state type is str
-        if type(game_state) == str:
+        if type(game_state) == int:
             font = pygame.font.Font('freesansbold.ttf', 32)
-            text = font.render(game_state[0], True, (255, 255, 255))
+            text = font.render(f'Player-{game_state + 1} Won!', True, (255, 255, 255))
             textRect = text.get_rect()
             textRect.center = (WIDTH // 2, HEIGHT // 2)
             screen.blit(text, textRect)
             pygame.display.flip()
-            pygame.time.delay(5000)
+            pygame.time.delay(50000)
             connected = False
         else:
             if game_state != None:
