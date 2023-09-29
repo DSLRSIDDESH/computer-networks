@@ -13,7 +13,7 @@ pygame.init()
 # Connect to the server
 IP = ''
 # IP = '192.168.12.135'
-PORT = 8018
+PORT = 8019
 ADDR = (IP, PORT)                                           # address
 SIZE = 4096
 
@@ -87,6 +87,14 @@ def main():
             pygame.display.flip()
             pygame.time.delay(50000)
             # connected = False
+        if type(game_state) == str:
+            font = pygame.font.Font('freesansbold.ttf', 32)
+            text = font.render(f'{game_state}', True, (255, 255, 255))
+            textRect = text.get_rect()
+            textRect.center = (WIDTH // 2, HEIGHT // 2)
+            screen.blit(text, textRect)
+            pygame.display.flip()
+            pygame.time.delay(50000)
         else:
             if game_state != None:
                 coins = game_state['coins']
