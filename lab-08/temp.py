@@ -11,7 +11,6 @@ WINDOW_SIZE = (WIDTH, HEIGHT)
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-
 # Create a window
 screen = pygame.display.set_mode(WINDOW_SIZE)
 pygame.display.set_caption("Button Click Example")
