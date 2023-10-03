@@ -10,10 +10,12 @@ import time
 
 # Server configuration
 IP = ''
-PORT = 8000
+PORT = 8019
 ADDR = (IP, PORT)
 SIZE = 4096
 clients = {}
+users_queue = queue.Queue()
+paid_users_queue = queue.Queue()
 
 # Constants
 WIDTH, HEIGHT = 600, 400
@@ -23,6 +25,7 @@ COIN_SIZE = 15
 COIN_COUNT = 10
 MAX_PLAYERS = 4
 WINNING_SCORE = 10
+PAID = False
 
 # Create the game state
 game_state = {
@@ -112,28 +115,33 @@ def main():
     # Accept and handle client connections
     player_id_counter = 0
     # initialize_player_scores()  # Initialize player scores
-
     while True:
         conn, addr = server.accept()
+        if PAID:
+            if(len(game_state['players']) == MAX_PLAYERS):
+                conn.send(pickle.dumps("Game is full!"))
+                continue
+            else:
+                player_id = player_id_counter
+                clients[player_id] = conn
+                player_id_counter += 1
 
-        player_id = player_id_counter
-        clients[player_id] = conn
-        player_id_counter += 1
+                # Initialize player's position
+                player_x = random.randint(0, WIDTH - PLAYER_SIZE)
+                player_y = random.randint(0, HEIGHT - PLAYER_SIZE)
+                game_state['players'][player_id] = (player_x, player_y)
 
-        # Initialize player's position
-        player_x = random.randint(0, WIDTH - PLAYER_SIZE)
-        player_y = random.randint(0, HEIGHT - PLAYER_SIZE)
-        game_state['players'][player_id] = (player_x, player_y)
+                
+                display_color = (random.randint(10, 255) for _ in range(3))
+                game_state['color'][player_id] = tuple(display_color)
+                game_state['player_scores'][player_id] = game_state['player_scores'].get(player_id, 0)
 
-        
-        display_color = (random.randint(10, 255) for _ in range(3))
-        game_state['color'][player_id] = tuple(display_color)
-        game_state['player_scores'][player_id] = game_state['player_scores'].get(player_id, 0)
+                client_thread = threading.Thread(target=handle_client, args=(conn, player_id))
+                client_thread.start()
 
-        client_thread = threading.Thread(target=handle_client, args=(conn, player_id))
-        client_thread.start()
+                print(f"> [Active Connections] {threading.active_count() - 1}")
+        # else:
 
-        print(f"> [Active Connections] {threading.active_count() - 1}")
 
 if __name__ == "__main__":
     main()
