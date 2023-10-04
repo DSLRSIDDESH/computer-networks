@@ -14,6 +14,7 @@ from getmac import get_mac_address
 pygame.init()
 
 # Connect to the server
+
 IP = ''
 # IP = '192.168.12.135'
 PORT = 8000
