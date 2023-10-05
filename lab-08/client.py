@@ -1,24 +1,17 @@
-# CS21B2019
-# DSLR SIDDESH
+# CS21B2019 DSLR SIDDESH
 # client.py
+
 import socket
 import pygame
 import pickle
 
-import threading
 import tkinter as tk
 from tkinter import messagebox
 from getmac import get_mac_address
 
-# Initialize Pygame
-pygame.init()
-
-# Connect to the server
-
 IP = ''
-# IP = '192.168.12.135'
-PORT = 8000
-ADDR = (IP, PORT)                                           # address
+PORT = 8001
+ADDR = (IP, PORT)                                           
 SIZE = 4096
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "DISCONNECT"
@@ -26,21 +19,16 @@ CONNECTED = False
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Constants
 WIDTH, HEIGHT = 600, 400
 PLAYER_SIZE = 30
 COIN_SIZE = 15
 BACKGROUND = (0, 0, 0)
 COIN_COLOR = (137, 207, 240)
 
-# Create the game window
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Coin Collector Game")
-
 def game_entry():
     def register():
         mac = mac_entry.get()
-        client.send(f"REGISTER/{mac};".encode(FORMAT))
+        client.send(pickle.dumps(f"REGISTER/{mac};"))
         msg = recv_msg(client)
         if msg == "OK":
             print(f"Registered MAC Address: {mac}")
@@ -75,31 +63,26 @@ def game_entry():
     def end_tk():
         start_tk.destroy()
         disconnect_server(client, "client")
-        
 
     start_tk = tk.Tk()
     start_tk.title("Game Registration/Login")
-
-    # Create a label and entry widget for MAC Address
+    
     mac_label = tk.Label(start_tk, text="MAC Address:")
     mac_label.grid(row=0, column=0)
     mac_entry = tk.Entry(start_tk)
     mac_entry.grid(row=0, column=1)
 
     mac_entry.insert(0, get_mac_address())
-
-    # Create a label and entry widget for payment amount
+    
     amount_label = tk.Label(start_tk, text="Amount (100/min):")
     amount_label.grid(row=2, column=0)
     amount_entry = tk.Entry(start_tk)
     amount_entry.grid(row=2, column=1)
 
     amount_entry.insert(0, "100")
-
-    # Create Pay button
+    
     pay_button = tk.Button(start_tk, text="Pay", command=pay)
-
-    # Create Register and Login buttons
+    
     register_button = tk.Button(start_tk, text="Register", command=register)
     login_button = tk.Button(start_tk, text="Login", command=login)
 
@@ -111,7 +94,6 @@ def game_entry():
 
     start_tk.mainloop()
 
-# Function to send player input to the server
 def send_player_input(client):
     keys = pygame.key.get_pressed()
     input_data = ({
@@ -122,17 +104,15 @@ def send_player_input(client):
     })
     client.send(pickle.dumps(input_data))
 
-# Function to receive game state from the server
 def receive_game_state(client):
     try:
-        data = client.recv(SIZE)
+        data = recv_msg(client)
         game_state = pickle.loads(data)
         return game_state
     except Exception as e:
         print(f"Error receiving game state: {e}")
         return None
 
-# Function to render player scores
 def render_players_scores(game_state):
     font = pygame.font.Font('freesansbold.ttf', 24)
     y_offset = 10
@@ -154,29 +134,33 @@ def disconnect_server(client: socket.socket, recv_from: str):
 
 def recv_msg(client: socket.socket, disconnect_info: str = ""):
     msg = client.recv(SIZE).decode(FORMAT)
+    msg = pickle.loads(msg)
     if msg == DISCONNECT_MESSAGE:
         print(disconnect_info)
         disconnect_server(client, "server")
     return msg
 
-def main():
-    global connected, client
-    # Connect to the server
+if __name__ == "__main__":
+
     client.connect(ADDR)
-    print(f"> Client connected to server at {IP}:{PORT}")
+    print(f"[CONNECTED] Client connected to server at {IP}:{PORT}")
 
     game_entry()
 
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Coin Collector Game")
+
     connected = True
-    while connected:    # Game loop
+    while connected:    
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 connected = False
 
-        send_player_input(client)  # Send player input to the server
-        game_state = receive_game_state(client)  # Receive game state from the server
+        send_player_input(client)
+        game_state = receive_game_state(client)  
         player_id = 0
-        # Check if the game_state type is str
+        
         if type(game_state) == int:
             font = pygame.font.Font('freesansbold.ttf', 32)
             text = font.render(f'Player-{game_state + 1} Won!', True, (255, 255, 255))
@@ -185,27 +169,20 @@ def main():
             screen.blit(text, textRect)
             pygame.display.flip()
             pygame.time.delay(50000)
-            # connected = False
+            
         else:
             if game_state != None:
                 coins = game_state['coins']
                 
-                screen.fill(BACKGROUND) # Clear the screen
+                screen.fill(BACKGROUND) 
 
-                for player_id, (player_x, player_y) in game_state['players'].items():     # Draw players
+                for player_id, (player_x, player_y) in game_state['players'].items():     
                     player_color = game_state['color'][player_id]
                     pygame.draw.rect(screen, player_color, (player_x, player_y, PLAYER_SIZE, PLAYER_SIZE))
-                for coin_x, coin_y in coins:                                # Draw coins
+                for coin_x, coin_y in coins:                                
                     pygame.draw.ellipse(screen, COIN_COLOR, (coin_x, coin_y, COIN_SIZE, COIN_SIZE))
 
-                # Display player scores
                 render_players_scores(game_state)
-
-                # Update the display
                 pygame.display.flip()
 
-    # Quit Pygame
     pygame.quit()
-
-if __name__ == "__main__":
-    main()

@@ -10,7 +10,7 @@ import time
 
 # Server configuration
 IP = ''
-PORT = 8000
+PORT = 8001
 ADDR = (IP, PORT)
 SIZE = 4096
 clients = {}
