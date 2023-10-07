@@ -9,8 +9,8 @@ import tkinter as tk
 from tkinter import messagebox
 from getmac import get_mac_address
 
-IP = ''
-PORT = 8100
+IP = socket.gethostbyname(socket.gethostname())
+PORT = 8085
 ADDR = (IP, PORT)                                           
 SIZE = 4096
 DISCONNECT_MESSAGE = "DISCONNECT"
@@ -106,8 +106,6 @@ def send_player_input(client):
 def receive_game_state(client):
     try:
         data = recv_msg(client)
-        # print(data)
-        # game_state = pickle.loads(data)
         return data
     except Exception as e:
         print(f"Error receiving game state: {e}")
@@ -164,14 +162,6 @@ try:
             
             if type(game_state) in (int, str):
                 pass
-            #     font = pygame.font.Font('freesansbold.ttf', 32)
-            #     text = font.render(f'Player-{game_state} Won!', True, (255, 255, 255))
-            #     textRect = text.get_rect()
-            #     textRect.center = (WIDTH // 2, HEIGHT // 2)
-            #     screen.blit(text, textRect)
-            #     pygame.display.flip()
-            #     pygame.time.delay(50000)
-                
             else:
                 if game_state != None:
                     coins = game_state['coins']

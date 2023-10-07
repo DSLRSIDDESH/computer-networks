@@ -8,8 +8,8 @@ import time
 import os
 from dataclasses import dataclass
 
-IP = ''
-PORT = 8100
+IP = socket.gethostbyname(socket.gethostname())
+PORT = 8085
 ADDR = (IP, PORT)
 SIZE = 4096
 
@@ -84,9 +84,10 @@ def player_timer(client: Client):
         client.time -= 1
         if client.time <= 0:
             client.conn.send(pickle.dumps("TIMEOUT"))
+            time.sleep(0.1)
             disconnect_client(client)
             break
-        time.sleep(0.1)
+        time.sleep(1)
 
 def add_player(client: Client):
     logged_in_macs.append(client.mac)
@@ -154,6 +155,7 @@ def handle_client(client: Client):
                 _, mac, amount = msg.split("/")
                 if mac in clients:
                     clients[mac].time += int(amount) * game_price
+                    print(f"Client paid {clients[mac].time} seconds")
                     conn.send(pickle.dumps("OK"))
                 else:
                     conn.send(pickle.dumps("MAC not registered"))
@@ -187,16 +189,8 @@ def handle_client(client: Client):
                 game_state['coins'].append((new_coin_x, new_coin_y))
             
             game_update = pickle.dumps(game_state)
-            for connection in clients.values():
+            for connection in players:
                 connection.conn.send(game_update)
-            
-            # if len(game_state['players']) > 1:
-            #     if max(game_state['player_scores'].values()) >= WINNING_SCORE:
-            #         for client.player, score in game_state['player_scores'].items():
-            #             if score >= WINNING_SCORE:
-            #                 break
-            #         for connection in clients.values():
-            #             connection.send(pickle.dumps(client.player))
     
     del game_state['players'][client.player]
     clients.pop(client.player)
@@ -221,10 +215,6 @@ def server_loop():
 
         current_client = Client(conn, addr, 0)
         active_clients += 1
-
-        # player_id = player_id_counter
-        # clients[player_id] = conn
-        # player_id_counter += 1
 
         client_thread = threading.Thread(target=handle_client, args=(current_client, ))
         client_thread.start()
