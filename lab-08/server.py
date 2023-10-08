@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8085
+PORT = 9090
 ADDR = (IP, PORT)
 SIZE = 4096
 
@@ -19,7 +19,6 @@ queue = []
 
 logged_in_macs = []
 active_clients = 0
-max_players = 4
 game_price = 60/100
 
 WIDTH, HEIGHT = 600, 400
@@ -27,14 +26,14 @@ PLAYER_SPEED = 1.5
 PLAYER_SIZE = 30
 COIN_SIZE = 15
 COIN_COUNT = 10
-MAX_PLAYERS = 4
+MAX_PLAYERS = 2
 WINNING_SCORE = 10
 
 game_state = {
     'players': {},          
     'player_scores': {},    
     'coins': [(random.randint(0, WIDTH - COIN_SIZE), random.randint(0, HEIGHT - COIN_SIZE)) for _ in range(COIN_COUNT)],
-    'color': {}             
+    'color': {}
 }
 
 @dataclass
@@ -49,7 +48,7 @@ class Client:
 
 def get_next_player():
     all_players = sorted([c.player for c in players])
-    player = 1
+    player = 0
     for p in all_players:
         if p == player:
             player += 1
@@ -84,7 +83,7 @@ def player_timer(client: Client):
         client.time -= 1
         if client.time <= 0:
             client.conn.send(pickle.dumps("TIMEOUT"))
-            time.sleep(0.1)
+            time.sleep(1)
             disconnect_client(client)
             break
         time.sleep(1)
@@ -92,13 +91,12 @@ def player_timer(client: Client):
 def add_player(client: Client):
     logged_in_macs.append(client.mac)
 
-    if len(players) > max_players:  # If players are full
+    if len(players) >= MAX_PLAYERS:  # If players are full
         client.player = -1
         queue.append(client)
     else:
         client.player = get_next_player()
         players.append(client)
-        # Initialize player's position
         player_x = random.randint(0, WIDTH - PLAYER_SIZE)
         player_y = random.randint(0, HEIGHT - PLAYER_SIZE)
         game_state['players'][client.player] = (player_x, player_y)
@@ -134,9 +132,14 @@ def handle_client(client: Client):
     addr = client.addr
     conn = client.conn
     print(f"> [NEW CONNECTION] {addr} connected.")
+    disconnected = False
 
     while True:
-        data = conn.recv(SIZE)
+        try:
+            data = conn.recv(SIZE)
+        except OSError:
+            disconnected = True
+            break
         if not data:
             break
         input_data = pickle.loads(data)
@@ -155,7 +158,6 @@ def handle_client(client: Client):
                 _, mac, amount = msg.split("/")
                 if mac in clients:
                     clients[mac].time += int(amount) * game_price
-                    print(f"Client paid {clients[mac].time} seconds")
                     conn.send(pickle.dumps("OK"))
                 else:
                     conn.send(pickle.dumps("MAC not registered"))
@@ -191,10 +193,11 @@ def handle_client(client: Client):
             game_update = pickle.dumps(game_state)
             for connection in players:
                 connection.conn.send(game_update)
-    
-    del game_state['players'][client.player]
-    clients.pop(client.player)
-    conn.close()
+    try:
+        if not disconnected:
+            disconnect_client(client)
+    except Exception as e:
+        pass
 
 def server_loop():
     global active_clients
@@ -206,12 +209,10 @@ def server_loop():
     server.listen()
     print(f"> Server is listening on {IP}:{PORT}")
     print(f"> [Active Connections] {active_clients}")
-    
-    player_id_counter = 0
 
     while True:
         conn, addr = server.accept()
-        addr = "{addr[0]}:{addr[1]}"
+        addr = f"{addr[0]}:{addr[1]}"
 
         current_client = Client(conn, addr, 0)
         active_clients += 1

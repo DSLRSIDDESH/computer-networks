@@ -4,13 +4,14 @@ import socket
 import pygame
 import pickle
 import os
+import time
 
 import tkinter as tk
 from tkinter import messagebox
 from getmac import get_mac_address
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8085
+PORT = 9090
 ADDR = (IP, PORT)                                           
 SIZE = 4096
 DISCONNECT_MESSAGE = "DISCONNECT"
@@ -23,6 +24,7 @@ PLAYER_SIZE = 30
 COIN_SIZE = 15
 BACKGROUND = (0, 0, 0)
 COIN_COLOR = (137, 207, 240)
+countdown = 10  # Initial countdown value
 
 def game_entry():
     def register():
@@ -161,7 +163,32 @@ try:
             game_state = receive_game_state(client)
             
             if type(game_state) in (int, str):
-                pass
+                if game_state == "TIMEOUT":
+                    font = pygame.font.Font('freesansbold.ttf', 32)
+                    countdown_text = f"Disconnecting from server in {countdown} sec"
+                    countdown_start_time = pygame.time.get_ticks()
+                    clock = pygame.time.Clock()
+                    while countdown > 0:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                pygame.quit()
+                        current_time = pygame.time.get_ticks()
+                        elapsed_time = current_time - countdown_start_time
+                        # Update countdown text every second
+                        if elapsed_time >= 1000:
+                            countdown -= 1
+                            countdown_text = f"Disconnecting from server in {countdown} sec"
+                            countdown_start_time = current_time
+                        screen.fill((0, 0, 0))  # Clear the screen
+                        text_surface = font.render(countdown_text, True, (255, 255, 255))
+                        screen.blit(text_surface, (WIDTH // 2 - text_surface.get_width() // 2, HEIGHT // 2 - text_surface.get_height() // 2))
+                        font = pygame.font.Font('freesansbold.ttf', 32)
+                        text = font.render(f'Your Time is Out!', True, (255, 255, 255))
+                        textRect = text.get_rect()
+                        textRect.center = (WIDTH // 2, HEIGHT // 2 - 50)
+                        screen.blit(text, textRect)
+                        pygame.display.flip()
+                        clock.tick(60)
             else:
                 if game_state != None:
                     coins = game_state['coins']
