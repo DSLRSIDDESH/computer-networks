@@ -9,20 +9,21 @@ import os
 from dataclasses import dataclass
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 9090
+PORT = 8081
 ADDR = (IP, PORT)
 SIZE = 4096
 
 clients = {}
 players = []
 queue = []
+do_not_send = []
 
 logged_in_macs = []
 active_clients = 0
 game_price = 60/100
 
 WIDTH, HEIGHT = 600, 400
-PLAYER_SPEED = 1.5
+PLAYER_SPEED = 3
 PLAYER_SIZE = 30
 COIN_SIZE = 15
 COIN_COUNT = 10
@@ -44,6 +45,7 @@ class Client:
     player: int
     mac: str = None
     time: float = 0.0
+    score = 0
     connected: bool = True
 
 def get_next_player():
@@ -68,11 +70,11 @@ def disconnect_client(client: Client):
         game_state['players'].pop(client.player)
         game_state['player_scores'].pop(client.player)
         game_state['color'].pop(client.player)
-        # initialize_player_scores()
     else:
         queue.remove(client)
     client.connected = False
     try:
+        do_not_send.remove(client)
         logged_in_macs.remove(client.mac)
         client.conn.close()
     except:
@@ -82,6 +84,7 @@ def player_timer(client: Client):
     while client.connected:
         client.time -= 1
         if client.time <= 0:
+            do_not_send.append(client)
             client.conn.send(pickle.dumps("TIMEOUT"))
             time.sleep(1)
             disconnect_client(client)
@@ -94,6 +97,7 @@ def add_player(client: Client):
     if len(players) >= MAX_PLAYERS:  # If players are full
         client.player = -1
         queue.append(client)
+        client.conn.send(pickle.dumps("QUEUE"))
     else:
         client.player = get_next_player()
         players.append(client)
@@ -108,12 +112,11 @@ def add_player(client: Client):
         timer_thread = threading.Thread(target=player_timer, args=(client,))
         timer_thread.start()
     
-    client.conn.send(pickle.dumps(client.player))
+    # client.conn.send(pickle.dumps(client.player))
     time.sleep(0.1)
 
 def update_player_position(player_id, input_data):
     global game_state
-    # print(game_state['players'])
     player_x, player_y = game_state['players'][player_id]
     if input_data['left']:
         player_x -= PLAYER_SPEED
@@ -145,7 +148,6 @@ def handle_client(client: Client):
         input_data = pickle.loads(data)
         msg = input_data
         if type(msg) == str:
-            print(msg)
             if "REGISTER" in msg:
                 _, mac = msg.split("/")
                 if mac in clients:
@@ -163,6 +165,8 @@ def handle_client(client: Client):
                     conn.send(pickle.dumps("MAC not registered"))
             elif "LOGIN" in msg:
                 _, mac = msg.split("/")
+                if client.time <= 0:
+                    conn.send(pickle.dumps("No Amount Paid!"))
                 if mac in logged_in_macs:
                     conn.send(pickle.dumps("MAC already logged in"))
                 elif mac in clients:
@@ -174,6 +178,15 @@ def handle_client(client: Client):
                     add_player(client)
                 else:
                     conn.send(pickle.dumps("MAC not registered"))
+            elif "QUEUE" in msg:
+                if client in queue:
+                    client.conn.send(pickle.dumps("QUEUE"))
+                if client in players:
+                    game_update = pickle.dumps(game_state)
+                    for connection in players:
+                        connection.conn.send(game_update)
+            elif "QUIT" in msg:
+                disconnect_client(client)
         else:
             update_player_position(client.player, input_data)
             
@@ -192,7 +205,8 @@ def handle_client(client: Client):
             
             game_update = pickle.dumps(game_state)
             for connection in players:
-                connection.conn.send(game_update)
+                if connection not in do_not_send:
+                    connection.conn.send(game_update)
     try:
         if not disconnected:
             disconnect_client(client)
@@ -222,10 +236,18 @@ def server_loop():
 
         print(f"> [Active Connections] {threading.active_count() - 1}")
 
+def handle_players():
+    while True:
+       if(len(players) < MAX_PLAYERS and len(queue) > 0):
+            add_player(queue.pop(0))
+
 def main():
     
     server_thread = threading.Thread(target=server_loop)
     server_thread.start()
+
+    players_thread = threading.Thread(target=handle_players)
+    players_thread.start()
 
 if __name__ == "__main__":
     try:
