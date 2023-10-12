@@ -12,7 +12,8 @@ from tkinter import messagebox
 from getmac import get_mac_address
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8081
+# IP = '192.168.12.237'
+PORT = 3535
 ADDR = (IP, PORT)                                           
 SIZE = 4096
 DISCONNECT_MESSAGE = "DISCONNECT"
@@ -91,7 +92,7 @@ def game_entry():
     mac_entry.grid(row=0, column=1)
 
     mac_entry.insert(0, get_mac_address())
-    mac_entry.config(state='readonly') # comment this line to run on local machine
+    # mac_entry.config(state='readonly') # comment this line to run on local machine
     
     amount_label = tk.Label(start_tk, text="Amount (100/min):")
     amount_label.grid(row=2, column=0)

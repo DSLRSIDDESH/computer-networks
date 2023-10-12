@@ -9,7 +9,8 @@ import os
 from dataclasses import dataclass
 
 IP = socket.gethostbyname(socket.gethostname())
-PORT = 8081
+# IP = '192.168.12.237'
+PORT = 3535
 ADDR = (IP, PORT)
 SIZE = 4096
 
@@ -234,7 +235,7 @@ def server_loop():
         client_thread = threading.Thread(target=handle_client, args=(current_client, ))
         client_thread.start()
 
-        print(f"> [Active Connections] {threading.active_count() - 1}")
+        print(f"> [Active Connections] {active_clients}")
 
 def handle_players():
     while True:
