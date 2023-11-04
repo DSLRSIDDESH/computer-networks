@@ -58,7 +58,6 @@ def handle_server(client):                                  # handle server rece
 
     client.close()
 
-
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # create socket
 
