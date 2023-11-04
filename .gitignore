@@ -1,7 +1,8 @@
 .DS_Store
 .vs_code
-*.md
 *.pdf
 */*.pdf
 *.png
 */*.png
+__pycache__
+*/__pycache__
