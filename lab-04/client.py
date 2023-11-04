@@ -30,10 +30,6 @@ def handle_client(client):
 
             client.send(send_msg.encode(FORMAT))
 
-    
-
-        
-
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
