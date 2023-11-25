@@ -64,7 +64,7 @@ class ServerConnection(QThread):
         self.threadpool = QThreadPool()
 
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.video_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # self.video_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.audio_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.connected = False
@@ -166,7 +166,6 @@ class ServerConnection(QThread):
                 if msg.data_type == 'video':
                     all_clients[client_name].video_frame = msg.data
                 elif msg.data_type == 'audio':
-                    print('---')
                     all_clients[client_name].audio_stream = msg.data
     
     def multicast_msg(self, conn, msg):

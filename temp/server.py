@@ -2,7 +2,6 @@ import socket
 import threading
 import time
 import os
-import traceback
 import pickle
 from dataclasses import dataclass
 from communication import *

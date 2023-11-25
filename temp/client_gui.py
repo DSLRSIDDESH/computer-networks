@@ -66,7 +66,7 @@ class PlayAudio(QThread):
         self.audio_stream = pa.open(rate=48000, channels=1, format=pyaudio.paInt16, output=True, frames_per_buffer=2048)
 
     def run(self):
-        if self.client.audio_stream is not None:
+        if self.client.audio is not None:
             return
         while self.connected:
             audio = self.client.get_audio()
@@ -323,7 +323,7 @@ class MainWindow(QMainWindow):
         self.video_list.add_video(client)
         self.audio_threads[client.name] = PlayAudio(client)
         self.audio_threads[client.name].start()
-        msg = Message(client.name, 'join', 'message', 'joined the conference', [self.client.name])
+        msg = Message(client.name, 'join', 'message', 'joined the conference', None)
         self.add_msg(msg)
     
     def remove_client(self, client):
