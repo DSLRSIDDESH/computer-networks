@@ -8,7 +8,7 @@ from communication import *
 
 # Server IP and port
 IP = ''
-MAIN_PORT = 6000
+MAIN_PORT = 7000
 VIDEO_PORT = MAIN_PORT + 1
 AUDIO_PORT = MAIN_PORT + 2
 
@@ -44,7 +44,7 @@ def multicast_msg(from_name: str, request: str, to_names: set[str], data_type: s
 
 def disconnect_client(client: Client):
     global clients
-
+    print(f"[DISCONNECTING] {client.name} disconnected from Main Server")
     msg = Message(client.name, RM)
     for client_name in clients:
         if client_name != client.name:

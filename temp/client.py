@@ -1,7 +1,6 @@
 import socket
 import pickle
-import sys
-import time
+import sys, time, os
 from PyQt6.QtCore import QThreadPool, QThread, pyqtSignal, QRunnable, pyqtSlot
 from PyQt6.QtWidgets import QApplication
 from client_gui import MainWindow, Video, Audio
@@ -9,7 +8,7 @@ from communication import *
 
 # Server IP and port
 SERVER_IP = ''
-MAIN_PORT = 6000
+MAIN_PORT = 7000
 VIDEO_PORT = MAIN_PORT + 1
 AUDIO_PORT = MAIN_PORT + 2
 
@@ -65,7 +64,7 @@ class ServerConnection(QThread):
 
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # self.video_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.audio_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # self.audio_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.connected = False
 
@@ -86,7 +85,7 @@ class ServerConnection(QThread):
 
         self.main_socket.connect((SERVER_IP, MAIN_PORT))
         # self.video_socket.connect((SERVER_IP, VIDEO_PORT))
-        self.audio_socket.connect((SERVER_IP, AUDIO_PORT))
+        # self.audio_socket.connect((SERVER_IP, AUDIO_PORT))
 
         self.connected = True
 
@@ -94,7 +93,7 @@ class ServerConnection(QThread):
         self.main_socket.send_bytes(client.name.encode())
         time.sleep(1)
         # self.video_socket.send_bytes(client.name.encode())
-        self.audio_socket.send_bytes(client.name.encode())
+        # self.audio_socket.send_bytes(client.name.encode())
     
     def start_conn_threads(self):
         self.main_thread = Worker(self.handle_main, self.main_socket)
@@ -103,8 +102,8 @@ class ServerConnection(QThread):
         # self.video_thread = Worker(self.handle_media, self.video_socket, 'video')
         # self.threadpool.start(self.video_thread)
 
-        self.audio_thread = Worker(self.handle_media, self.audio_socket, 'audio')
-        self.threadpool.start(self.audio_thread)
+        # self.audio_thread = Worker(self.handle_media, self.audio_socket, 'audio')
+        # self.threadpool.start(self.audio_thread)
 
     def start_broadcast_threads(self):
         self.msg_multicast_thread = Worker(self.multicast_msg, self.main_socket, 'msg')
@@ -113,9 +112,16 @@ class ServerConnection(QThread):
         # self.video_broadcast_thread = Worker(self.broadcast_media, self.video_socket, 'video')
         # self.threadpool.start(self.video_broadcast_thread)
 
-        self.audio_broadcast_thread = Worker(self.broadcast_media, self.audio_socket, 'audio')
-        self.threadpool.start(self.audio_broadcast_thread)
+        # self.audio_broadcast_thread = Worker(self.broadcast_media, self.audio_socket, 'audio')
+        # self.threadpool.start(self.audio_broadcast_thread)
     
+    def disconnect(self):
+        msg = Message(client.name, DISCONNECT_MSG)
+        self.main_socket.send_bytes(pickle.dumps(msg))
+        self.main_socket.disconnect()
+        # self.video_socket.disconnect()
+        # self.audio_socket.disconnect()
+        
     def handle_main(self, conn):
         global all_clients, active_clients
         while self.connected:
@@ -203,11 +209,15 @@ all_clients = {}
 def main():
     app = QApplication(sys.argv)
 
-    server_conn = ServerConnection()
-    window = MainWindow(client, server_conn)
+    server = ServerConnection()
+    window = MainWindow(client, server)
     window.show()
 
     app.exec()
+    server.disconnect()
+    os._exit(0)
+
+    
 
 if __name__ == '__main__':
     try:

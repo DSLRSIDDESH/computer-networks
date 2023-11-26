@@ -1,7 +1,6 @@
 import socket
 import struct
 import pickle
-from dataclasses import dataclass
 
 active_clients = set()
 SEND_MSG = False

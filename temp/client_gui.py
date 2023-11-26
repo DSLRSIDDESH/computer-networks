@@ -1,5 +1,6 @@
 import cv2
 import pyaudio
+import time
 from communication import *
 from PyQt6.QtCore import Qt, QSize, QThread, QTimer
 from PyQt6.QtGui import QImage, QPixmap
@@ -8,9 +9,18 @@ from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QDockWidget, \
     QCheckBox, QFileDialog, QListWidget, QListWidgetItem, QMessageBox, \
     QDialog
 
-FRAME_WIDTH = 480
-FRAME_HEIGHT = 360
+FRAME_WIDTH = 1080
+FRAME_HEIGHT = 810
 pa = pyaudio.PyAudio()
+
+ENABLE_VIDEO = True
+ENABLE_AUDIO = True
+
+NO_CAM = cv2.imread('images/cam.jpeg')
+cam_h, cam_w = NO_CAM.shape[:2]
+cam_w, cam_h = (cam_w - FRAME_WIDTH//3)//2, (cam_h - FRAME_HEIGHT//3)//2
+NO_CAM = NO_CAM[cam_h:cam_h+FRAME_HEIGHT//3, cam_w:cam_w+FRAME_WIDTH//3]
+NO_MIC = cv2.flip(cv2.imread('images/mic.jpeg'), 1)
 
 class LoginWindow(QDialog):
     def __init__(self):
@@ -55,6 +65,8 @@ class Audio:
         self.audio_stream = pa.open(rate=48000, channels=1, format=pyaudio.paInt16, input=True, frames_per_buffer=2048)
 
     def get_stream(self):
+        if not ENABLE_AUDIO:
+            return None
         self.audio = self.audio_stream.read(2048, exception_on_overflow=False)
         return self.audio
 
@@ -76,15 +88,24 @@ class PlayAudio(QThread):
 class Video:
     def __init__(self):
         self.capture = cv2.VideoCapture(0)
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
     
     def get_frame(self):
-        success, frame = self.capture.read()
-        if success:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)    # convert frame to RGB
-            frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT), interpolation=cv2.INTER_AREA)
-            return cv2.flip(frame, 1)
+        global ENABLE_VIDEO, ENABLE_AUDIO
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH//3)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT//3)
+        if not ENABLE_VIDEO:
+            frame = cv2.resize(NO_CAM, (FRAME_WIDTH//3, FRAME_HEIGHT//3), interpolation=cv2.INTER_AREA)
+        else:
+            success, frame = self.capture.read()
+            if success:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)    # convert frame to RGB
+                frame = cv2.resize(frame, (FRAME_WIDTH//3, FRAME_HEIGHT//3), interpolation=cv2.INTER_AREA)
+                frame = cv2.flip(frame, 1)
+        if not ENABLE_AUDIO:
+                nomic_h, nomic_w, _ = NO_MIC.shape
+                x, y = FRAME_WIDTH//3 -  2 * nomic_w, FRAME_HEIGHT//3 - 2 * nomic_h
+                frame[y:y+nomic_h, x:x+nomic_w] = NO_MIC.copy()
+        return frame
 
 class SelectClients(QWidget):
     def __init__(self, client_list, msg_type, msg_data):
@@ -244,8 +265,8 @@ class VideoWidget(QWidget):
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_frame.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.layout.addWidget(self.name_label)
         self.layout.addWidget(self.video_frame)
+        self.layout.addWidget(self.name_label)
     
     def update_video(self):
         frame = self.client.get_video()
@@ -274,7 +295,7 @@ class VideoListWidget(QListWidget):
         item = QListWidgetItem()
         item.setFlags(item.flags() & ~(Qt.ItemFlag.ItemIsSelectable|Qt.ItemFlag.ItemIsEnabled))
         self.addItem(item)
-        item.setSizeHint(QSize(FRAME_WIDTH, FRAME_HEIGHT))
+        item.setSizeHint(QSize(FRAME_WIDTH//3, FRAME_HEIGHT//3))
         self.setItemWidget(item, video_widget)
         self.all_items[client.name] = item
     
@@ -316,8 +337,47 @@ class MainWindow(QMainWindow):
         self.chatbar.setWidget(self.chat_widget)
         self.chatbar.setFixedWidth(250)
 
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.chatbar)
+        self.add_toggle_buttons()   # add video & audio on/off, end-call buttons
+
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.chatbar)
         self.chatbar.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+    
+    def add_toggle_buttons(self):
+        self.enable_video = QCheckBox("Video")
+        self.enable_video.setChecked(True)
+        self.enable_video.stateChanged.connect(lambda: self.toggle_media('video'))
+
+        self.enable_audio = QCheckBox("Audio")
+        self.enable_audio.setChecked(True)
+        self.enable_audio.stateChanged.connect(lambda: self.toggle_media('audio'))
+
+        self.end_call = QPushButton("Leave Call")
+        # change its color to red and round edges
+        self.end_call.setStyleSheet("background-color: #F15A59;")
+        self.end_call.clicked.connect(self.close)
+
+        h_layout = QHBoxLayout()
+        h_layout.addWidget(self.enable_video)
+        h_layout.addWidget(self.enable_audio)
+
+        v_layout = QVBoxLayout()
+        v_layout.addLayout(h_layout)
+        v_layout.addWidget(self.end_call)
+
+        self.chat_widget.layout.addLayout(v_layout)
+    
+    def toggle_media(self, media):
+        global ENABLE_VIDEO, ENABLE_AUDIO
+        if media == 'video':
+            if self.enable_video.isChecked():
+                ENABLE_VIDEO = True
+            else:
+                ENABLE_VIDEO = False
+        elif media == 'audio':
+            if self.enable_audio.isChecked():
+                ENABLE_AUDIO = True
+            else:
+                ENABLE_AUDIO = False
 
     def add_client(self, client):
         self.video_list.add_video(client)
@@ -326,8 +386,12 @@ class MainWindow(QMainWindow):
         msg = Message(client.name, 'join', 'message', 'joined the conference', None)
         self.add_msg(msg)
     
-    def remove_client(self, client):
-        self.video_list.remove_video(client)
+    def remove_client(self, client_name):
+        self.video_list.remove_video(client_name)
+        self.audio_threads[client_name].connected = False
+        self.audio_threads[client_name].wait()
+        self.audio_threads.pop(client_name)
+        self.chat_widget.chat_box.append(f"{client_name} left the conference")
 
     def add_msg(self, msg):
         if self.client.name != msg.from_name:
