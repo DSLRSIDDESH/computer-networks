@@ -7,10 +7,16 @@ from client_gui import MainWindow, Video, Audio
 from communication import *
 
 # Server IP and port
-SERVER_IP = ''
+SERVER_IP = '192.168.141.239'
+# SERVER_IP = ''
 MAIN_PORT = 7000
 VIDEO_PORT = MAIN_PORT + 1
 AUDIO_PORT = MAIN_PORT + 2
+
+VIDEO_ADDR = (SERVER_IP, VIDEO_PORT)
+AUDIO_ADDR = (SERVER_IP, AUDIO_PORT)
+MEDIA_SIZE = {'video': 25000, 'audio': 4500}
+
 
 DISCONNECT_MSG = 'disconnect'
 name_list = []
@@ -63,8 +69,8 @@ class ServerConnection(QThread):
         self.threadpool = QThreadPool()
 
         self.main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.video_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.audio_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.video_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.audio_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.connected = False
 
@@ -84,43 +90,42 @@ class ServerConnection(QThread):
     def init_connection(self):
 
         self.main_socket.connect((SERVER_IP, MAIN_PORT))
-        # self.video_socket.connect((SERVER_IP, VIDEO_PORT))
-        # self.audio_socket.connect((SERVER_IP, AUDIO_PORT))
+
+
 
         self.connected = True
 
         print("Sending name: ", client.name)
         self.main_socket.send_bytes(client.name.encode())
         time.sleep(1)
-        # self.video_socket.send_bytes(client.name.encode())
-        # self.audio_socket.send_bytes(client.name.encode())
+
+        self.video_socket.sendto(pickle.dumps(Message(client.name, 'add', 'video')), VIDEO_ADDR)
+        self.audio_socket.sendto(pickle.dumps(Message(client.name, 'add', 'audio')), AUDIO_ADDR)
     
     def start_conn_threads(self):
         self.main_thread = Worker(self.handle_main, self.main_socket)
         self.threadpool.start(self.main_thread)
 
-        # self.video_thread = Worker(self.handle_media, self.video_socket, 'video')
-        # self.threadpool.start(self.video_thread)
+        self.video_thread = Worker(self.handle_media, self.video_socket, 'video')
+        self.threadpool.start(self.video_thread)
 
-        # self.audio_thread = Worker(self.handle_media, self.audio_socket, 'audio')
-        # self.threadpool.start(self.audio_thread)
+        self.audio_thread = Worker(self.handle_media, self.audio_socket, 'audio')
+        self.threadpool.start(self.audio_thread)
 
     def start_broadcast_threads(self):
         self.msg_multicast_thread = Worker(self.multicast_msg, self.main_socket, 'msg')
         self.threadpool.start(self.msg_multicast_thread)
 
-        # self.video_broadcast_thread = Worker(self.broadcast_media, self.video_socket, 'video')
-        # self.threadpool.start(self.video_broadcast_thread)
+        self.video_broadcast_thread = Worker(self.broadcast_media, self.video_socket, 'video')
+        self.threadpool.start(self.video_broadcast_thread)
 
-        # self.audio_broadcast_thread = Worker(self.broadcast_media, self.audio_socket, 'audio')
-        # self.threadpool.start(self.audio_broadcast_thread)
+        self.audio_broadcast_thread = Worker(self.broadcast_media, self.audio_socket, 'audio')
+        self.threadpool.start(self.audio_broadcast_thread)
     
-    def disconnect(self):
+    def disconnect_all(self):
         msg = Message(client.name, DISCONNECT_MSG)
         self.main_socket.send_bytes(pickle.dumps(msg))
         self.main_socket.disconnect()
-        # self.video_socket.disconnect()
-        # self.audio_socket.disconnect()
         
     def handle_main(self, conn):
         global all_clients, active_clients
@@ -129,10 +134,10 @@ class ServerConnection(QThread):
             if not msg_bytes:
                 self.connected = False
                 break
-            msg = pickle.loads(msg_bytes)
-            if type(msg) != Message:
-                print("Clients: ", msg)
-            elif msg.request == DISCONNECT_MSG:
+            msg = pickle.loads(msg_bytes) 
+            # if type(msg) != Message:
+            #     print("Clients: ", msg)conn
+            if msg.request == DISCONNECT_MSG:
                 self.connected = False
                 break
             elif msg.request == 'add':
@@ -157,11 +162,14 @@ class ServerConnection(QThread):
     def handle_media(self, conn, media):
         global all_clients
         while self.connected:
-            msg_bytes = conn.recv_bytes()
+            msg_bytes, _ = conn.recvfrom(MEDIA_SIZE[media])
             if not msg_bytes:
                 self.connected = False
                 break
             msg = pickle.loads(msg_bytes)
+            # if type(msg) != Message:
+            #     msg = pickle.loads(msg)
+            #     print(msg.from_name, msg.data_type)
             if msg.request == DISCONNECT_MSG:
                 self.connected = False
                 break
@@ -195,14 +203,16 @@ class ServerConnection(QThread):
     def broadcast_media(self, conn, media):
         while self.connected:
             if media == 'video':
+                addr = VIDEO_ADDR
                 data = client.get_video()
             elif media == 'audio':
+                addr = AUDIO_ADDR
                 data = client.get_audio()
             else:
                 print("Invalid media type")
                 break
             msg = Message(client.name, 'post', media, data)
-            conn.send_bytes(pickle.dumps(msg))
+            conn.sendto(pickle.dumps(msg), addr)
 
 client = Client('You', None)
 all_clients = {}
@@ -214,10 +224,8 @@ def main():
     window.show()
 
     app.exec()
-    server.disconnect()
+    server.disconnect_all()
     os._exit(0)
-
-    
 
 if __name__ == '__main__':
     try:

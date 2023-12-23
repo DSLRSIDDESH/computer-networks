@@ -18,7 +18,10 @@ class Message:
 
 def send_bytes(self, msg):
     msg = struct.pack('>I', len(msg)) + msg
-    self.sendall(msg)
+    try:
+        self.sendall(msg)
+    except (OSError, ConnectionResetError):
+        print("Connection lost")
 
 def recv_bytes(self):
     raw_msglen = self.recvall(4)
@@ -30,10 +33,14 @@ def recv_bytes(self):
 def recvall(self, n):
     data = bytearray()
     while len(data) < n:
-        packet = self.recv(n - len(data))
-        if not packet:
+        try:
+            packet = self.recv(n - len(data))
+            if not packet:
+                return b''
+            data.extend(packet)
+        except (OSError, ConnectionResetError):
+            print("Connection lost")
             return b''
-        data.extend(packet)
     return data
 
 def disconnect(self):

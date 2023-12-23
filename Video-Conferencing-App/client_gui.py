@@ -3,11 +3,20 @@ import pyaudio
 import time
 from communication import *
 from PyQt6.QtCore import Qt, QSize, QThread, QTimer
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QDockWidget, \
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QWidget, \
     QCheckBox, QFileDialog, QListWidget, QListWidgetItem, QMessageBox, \
     QDialog
+
+frame_size = {
+    '240p': [352, 240],
+    '360p': [480, 360],
+    '480p': [640, 480],
+    '720p': [1080, 720],
+    '900p': [1600, 900],
+    '1080p': [1920, 1080]
+}
 
 FRAME_WIDTH = 1080
 FRAME_HEIGHT = 810
@@ -15,12 +24,14 @@ pa = pyaudio.PyAudio()
 
 ENABLE_VIDEO = True
 ENABLE_AUDIO = True
+ENCODE_PARAM = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+
 
 NO_CAM = cv2.imread('images/cam.jpeg')
 cam_h, cam_w = NO_CAM.shape[:2]
 cam_w, cam_h = (cam_w - FRAME_WIDTH//3)//2, (cam_h - FRAME_HEIGHT//3)//2
 NO_CAM = NO_CAM[cam_h:cam_h+FRAME_HEIGHT//3, cam_w:cam_w+FRAME_WIDTH//3]
-NO_MIC = cv2.flip(cv2.imread('images/mic.jpeg'), 1)
+NO_MIC = cv2.imread('images/microphone-slash-solid.jpeg')
 
 class LoginWindow(QDialog):
     def __init__(self):
@@ -62,20 +73,23 @@ class LoginWindow(QDialog):
 
 class Audio:
     def __init__(self):
-        self.audio_stream = pa.open(rate=48000, channels=1, format=pyaudio.paInt16, input=True, frames_per_buffer=2048)
+        self.audio_stream = pa.open(rate=44100, channels=1, format=pyaudio.paInt16, input=True, frames_per_buffer=2048)
 
     def get_stream(self):
+        global ENABLE_AUDIO
         if not ENABLE_AUDIO:
+            self.audio = None
             return None
-        self.audio = self.audio_stream.read(2048, exception_on_overflow=False)
-        return self.audio
+        if ENABLE_AUDIO:
+            self.audio = self.audio_stream.read(2048)
+            return self.audio
 
 class PlayAudio(QThread):
     def __init__(self, client):
         super().__init__()
         self.connected = True
         self.client = client
-        self.audio_stream = pa.open(rate=48000, channels=1, format=pyaudio.paInt16, output=True, frames_per_buffer=2048)
+        self.audio_stream = pa.open(rate=44100, channels=1, format=pyaudio.paInt16, output=True, frames_per_buffer=2048)
 
     def run(self):
         if self.client.audio is not None:
@@ -87,24 +101,30 @@ class PlayAudio(QThread):
 
 class Video:
     def __init__(self):
-        self.capture = cv2.VideoCapture(0)
+        self.capture = cv2.VideoCapture(2)
+        if not self.capture.isOpened():
+            self.capture = cv2.VideoCapture(0)
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 352)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
     
     def get_frame(self):
         global ENABLE_VIDEO, ENABLE_AUDIO
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH//3)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT//3)
         if not ENABLE_VIDEO:
-            frame = cv2.resize(NO_CAM, (FRAME_WIDTH//3, FRAME_HEIGHT//3), interpolation=cv2.INTER_AREA)
+            frame = cv2.resize(NO_CAM, (352, 240), interpolation=cv2.INTER_AREA)
         else:
             success, frame = self.capture.read()
             if success:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)    # convert frame to RGB
-                frame = cv2.resize(frame, (FRAME_WIDTH//3, FRAME_HEIGHT//3), interpolation=cv2.INTER_AREA)
-                frame = cv2.flip(frame, 1)
+                frame = cv2.resize(frame, (352, 240), interpolation=cv2.INTER_AREA)
+                # frame = cv2.flip(frame, 1)
+            else:
+                return None
         if not ENABLE_AUDIO:
                 nomic_h, nomic_w, _ = NO_MIC.shape
-                x, y = FRAME_WIDTH//3 -  2 * nomic_w, FRAME_HEIGHT//3 - 2 * nomic_h
+                x, y = 352 -  2 * nomic_w, 240 - 2 * nomic_h
                 frame[y:y+nomic_h, x:x+nomic_w] = NO_MIC.copy()
+
+        _, frame = cv2.imencode('.jpg', frame, ENCODE_PARAM)
         return frame
 
 class SelectClients(QWidget):
@@ -204,7 +224,7 @@ class SendPopup(QWidget):
         self.send_button.clicked.connect(self.open_clients_list)
 
     def select_file(self):
-        self.file_path = QFileDialog.getOpenFileName(self, 'Select File')[0]
+        self.file_path = QFileDialog.getOpenFileName(self, 'Select File', options= QFileDialog.Option.DontUseNativeDialog)[0]
         self.textbox.setText(self.file_path)
     
     def open_clients_list(self):
@@ -271,6 +291,8 @@ class VideoWidget(QWidget):
     def update_video(self):
         frame = self.client.get_video()
         if frame is not None:
+            frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+            frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT), interpolation=cv2.INTER_AREA)
             height, width, channel = frame.shape
             bytes_per_line = channel * width
             image = QImage(frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
@@ -288,6 +310,8 @@ class VideoListWidget(QListWidget):
         self.setWrapping(True)
         self.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.setMovement(QListWidget.Movement.Static)
+
+
     
     def add_video(self, client, frame=None):
         video_widget = VideoWidget(client)
@@ -295,13 +319,48 @@ class VideoListWidget(QListWidget):
         item = QListWidgetItem()
         item.setFlags(item.flags() & ~(Qt.ItemFlag.ItemIsSelectable|Qt.ItemFlag.ItemIsEnabled))
         self.addItem(item)
-        item.setSizeHint(QSize(FRAME_WIDTH//3, FRAME_HEIGHT//3))
+        item.setSizeHint(QSize(FRAME_WIDTH, FRAME_HEIGHT))
         self.setItemWidget(item, video_widget)
         self.all_items[client.name] = item
     
     def remove_video(self, name):
-        self.removeItemWidget(self.all_items[name])
+        self.takeItem(self.row(self.all_items[name]))
         self.all_items.pop(name)
+    
+    def update_size(self):
+        global FRAME_WIDTH, FRAME_HEIGHT
+        n = len(self.all_items)
+        if n <= 1:
+            res = '900p'
+        elif n <= 4:
+            res = '480p'
+        elif n <= 6:
+            res = '360p'
+        else:
+            res = '240p'
+        FRAME_WIDTH, FRAME_HEIGHT = frame_size[res]
+        for item in self.all_items.values():
+            item.setSizeHint(QSize(FRAME_WIDTH, FRAME_HEIGHT))
+
+
+class ImageCheckBox(QCheckBox):
+    def __init__(self, checked_image_path, unchecked_image_path, size, parent=None):
+        super().__init__(parent)
+        self.checked_image_path = checked_image_path
+        self.unchecked_image_path = unchecked_image_path
+        self.size = size
+        self.update_checkbox_image()
+
+        self.setStyleSheet("QCheckBox::indicator { width:0px; height:0px; }")
+        self.stateChanged.connect(self.update_checkbox_image)
+
+    def update_checkbox_image(self):
+        pixmap = QPixmap(self.checked_image_path) if self.isChecked() else QPixmap(self.unchecked_image_path)
+
+        pixmap = pixmap.scaledToWidth(self.size, Qt.TransformationMode.SmoothTransformation)
+
+        self.setIcon(QIcon(pixmap))
+        self.setIconSize(pixmap.size())
 
 class MainWindow(QMainWindow):
     def __init__(self, client, server_conn):
@@ -331,50 +390,58 @@ class MainWindow(QMainWindow):
 
         self.video_list = VideoListWidget()
         self.setCentralWidget(self.video_list)
+
+        layout = QHBoxLayout(self.video_list)
+        
+        self.enable_cam = ImageCheckBox('images/video-solid.png', 'images/video-slash-solid.png',40)
+        self.enable_cam.setChecked(True)
+        self.enable_cam.stateChanged.connect(lambda: self.toggle_media('video'))
+
+        self.enable_mic = ImageCheckBox('images/microphone-solid.png', 'images/microphone-slash-solid.png',40)
+        self.enable_mic.setChecked(True)
+        self.enable_mic.stateChanged.connect(lambda: self.toggle_media('audio'))
+
+        self.open_chat = ImageCheckBox('images/comment-solid.png', 'images/comment-slash-solid.png',40)
+        self.open_chat.setChecked(False)
+        self.open_chat.stateChanged.connect(self.toggle_chat)
+
+        self.end_call = ImageCheckBox('images/hangup.png', 'images/hangup.png', 60)
+        self.end_call.setChecked(False)
+        # self.end_call.setStyleSheet("background-color: #F15A59;")
+        self.end_call.stateChanged.connect(self.close)
+
+        layout.addWidget(self.enable_cam)
+        layout.addWidget(self.enable_mic)
+        layout.addWidget(self.open_chat)
+        layout.addWidget(self.end_call)
+
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignBottom)
+        
         
         self.chatbar = QDockWidget("Chat", self)
         self.chat_widget = ChatWidget()
         self.chatbar.setWidget(self.chat_widget)
         self.chatbar.setFixedWidth(250)
-
-        self.add_toggle_buttons()   # add video & audio on/off, end-call buttons
+        self.chatbar.setHidden(True)
 
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.chatbar)
         self.chatbar.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
-    
-    def add_toggle_buttons(self):
-        self.enable_video = QCheckBox("Video")
-        self.enable_video.setChecked(True)
-        self.enable_video.stateChanged.connect(lambda: self.toggle_media('video'))
 
-        self.enable_audio = QCheckBox("Audio")
-        self.enable_audio.setChecked(True)
-        self.enable_audio.stateChanged.connect(lambda: self.toggle_media('audio'))
-
-        self.end_call = QPushButton("Leave Call")
-        # change its color to red and round edges
-        self.end_call.setStyleSheet("background-color: #F15A59;")
-        self.end_call.clicked.connect(self.close)
-
-        h_layout = QHBoxLayout()
-        h_layout.addWidget(self.enable_video)
-        h_layout.addWidget(self.enable_audio)
-
-        v_layout = QVBoxLayout()
-        v_layout.addLayout(h_layout)
-        v_layout.addWidget(self.end_call)
-
-        self.chat_widget.layout.addLayout(v_layout)
+    def toggle_chat(self):
+        if self.open_chat.isChecked():
+            self.chatbar.setHidden(False)
+        else:
+            self.chatbar.setHidden(True)
     
     def toggle_media(self, media):
         global ENABLE_VIDEO, ENABLE_AUDIO
         if media == 'video':
-            if self.enable_video.isChecked():
+            if self.enable_cam.isChecked():
                 ENABLE_VIDEO = True
             else:
                 ENABLE_VIDEO = False
         elif media == 'audio':
-            if self.enable_audio.isChecked():
+            if self.enable_mic.isChecked():
                 ENABLE_AUDIO = True
             else:
                 ENABLE_AUDIO = False
@@ -385,6 +452,7 @@ class MainWindow(QMainWindow):
         self.audio_threads[client.name].start()
         msg = Message(client.name, 'join', 'message', 'joined the conference', None)
         self.add_msg(msg)
+        self.video_list.update_size()
     
     def remove_client(self, client_name):
         self.video_list.remove_video(client_name)
